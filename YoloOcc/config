@@ -1,0 +1,14 @@
+{
+    "camera_list": [
+        {
+            "name": "andrew_office",
+            "url": "https://192.168.9.132/ISAPI/Streaming/channels/1/picture?videoResolutionWidth=1920&videoResolutionHeight=1080",
+            "username": "admin",
+            "password": "#8jrh%A#eo&CeuV3",
+            "description": "example camera of andrew's office"
+        }
+    ],
+    "scan_interval": 20,
+    "site": "site123",
+    "client": "client123"
+}

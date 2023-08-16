@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=https://docs.ultralytics.com/
+HostUrl=https://objects.githubusercontent.com/github-production-release-asset-2e65be/521807533/1013abe2-be6e-4606-8433-daf2baecf594?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20230816%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20230816T032916Z&X-Amz-Expires=300&X-Amz-Signature=bc00d6b39c3a203d266b59916b7ca654143b1d9afe4c6549492618f2fcefc7d6&X-Amz-SignedHeaders=host&actor_id=23422782&key_id=0&repo_id=521807533&response-content-disposition=attachment%3B%20filename%3Dyolov8n.pt&response-content-type=application%2Foctet-stream
