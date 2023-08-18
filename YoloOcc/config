@@ -8,6 +8,7 @@
             "description": "example camera of andrew's office"
         }
     ],
+    "filter_items": ["person", "laptop", "cell phone"],
     "scan_interval": 20,
     "site": "site123",
     "client": "client123"

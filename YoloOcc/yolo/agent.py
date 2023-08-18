@@ -46,7 +46,8 @@ def yolo(config_path, **kwargs):
     scan_interval = int(config.get('scan_interval', "300"))
     site = config.get('site', 'sitetest')
     client = config.get('client', 'clienttest')
-    return Yolo(camera_list, scan_interval, site, client, **kwargs)
+    filter_items = config.get('filter_items', [])
+    return Yolo(camera_list, scan_interval, site, client, filter_items, **kwargs)
 
 
 class Yolo(Agent):
@@ -54,7 +55,7 @@ class Yolo(Agent):
     Document agent constructor here.
     """
 
-    def __init__(self, camera_list=[], scan_interval=300, site = 'test_site', client = 'test_client', **kwargs):
+    def __init__(self, camera_list=[], scan_interval=300, site = 'test_site', client = 'test_client', filter_items = [], **kwargs):
         super(Yolo, self).__init__(**kwargs)
         _log.debug("vip_identity: " + self.core.identity)
 
@@ -63,6 +64,7 @@ class Yolo(Agent):
         self.client = client
         self.site = site
         self.camera_analysis = None
+        self.filter_items = filter_items
 
         self.default_config = {"camera_list": camera_list,
                                "scan_interval": scan_interval}
@@ -93,9 +95,10 @@ class Yolo(Agent):
                 for entry in contents:
                     _log.debug(f"setting {entry}")
             self.camera_list = contents.get("camera_list")
-            self.scan_interval = contents.get("scan_interval")
+            self.scan_interval = contents.get("scan_interval", 30)
             self.site = contents.get("site")
             self.client = contents.get("client")
+            self.filter_items = contents.get("filter_items", [])
             if self.camera_analysis is not None:
                 self.camera_analysis.kill()
             self.camera_analysis = self.core.periodic(self.scan_interval, self.send_camera_results)
@@ -127,22 +130,47 @@ class Yolo(Agent):
         _log.error(f"grequests error: {exception} with {request}")
 
     def analyze_images(self, image:Image):
+        def center_point(x1, y1, x2, y2):
+            x_center = (x1 + x2) / 2
+            y_center = (y1 + y2) / 2
+            return (x_center, y_center)
+
+        def check_dict(d, key):
+            if key in d:
+                d[key] += 1
+            else:
+                d[key] = 1
+            return d
+
+        def store_image_quadrant(x, y, W, H, quadrant_dict, key):
+            if x < W/2 and y < H/2:
+                return check_dict(quadrant_dict, "top-left-quadrant/" + key)
+            elif x >= W/2 and y < H/2:
+                return check_dict(quadrant_dict, "top-right-quadrant/" + key)
+            elif x < W/2 and y >= H/2:
+                return check_dict(quadrant_dict, "bottom-left-quadrant/" + key)
+            elif x >= W/2 and y >= H/2:
+                return check_dict(quadrant_dict, "bottom-right-quadrant/" + key)
+    
         results = self.model(image)[0]
+        identified_items = {}
         # _log.debug(results)
         if results.boxes:
             boxes = results.boxes.cpu().numpy()
-            identified_items = {}
+
             for box in boxes:
                 box_coordinates = box.xyxy[0].astype(int)
                 box_identified = results.names[int(box.cls[0])]
 
-                if box_identified in identified_items:
-                    identified_items[box_identified] += 1
-                else:
-                    identified_items[box_identified] = 1
-            return identified_items
-        else:
-            return None
+                store_box_identified = False
+                if not self.filter_items or box_identified in self.filter_items:
+                    store_box_identified = True
+
+                if store_box_identified:
+                    check_dict(identified_items, 'total/' + box_identified)
+                    center_x, center_y = center_point(box_coordinates[0], box_coordinates[1], box_coordinates[2], box_coordinates[3])
+                    store_image_quadrant(center_x, center_y, results.orig_shape[1], results.orig_shape[0], identified_items, box_identified)
+        return identified_items
 
     def send_camera_results(self):
         for camera in self.camera_list:
@@ -157,11 +185,12 @@ class Yolo(Agent):
                 image_bytes = BytesIO(response.content)
                 image = Image.open(image_bytes)
                 analysis_result = self.analyze_images(image)
+                analysis_result['online'] = 1
                 _log.debug("Response received")
             else:
                 _log.debug(response.status_code)
                 _log.debug(response.text)
-                analysis_result = 'Camera failed connection'
+                analysis_result = {'online': 0}
             now = utils.format_timestamp( datetime.utcnow())
             header = {
                 header_mod.DATE: now,
@@ -172,7 +201,7 @@ class Yolo(Agent):
                 'pubsub', 
                 f"devices/{self.client}/{self.site}/cameras/{camera.get('name')}",
                 headers=header,
-                message=analysis_result
+                message=[analysis_result]
             )
         return
 
