@@ -6,6 +6,7 @@ __docformat__ = 'reStructuredText'
 
 import logging
 import sys
+import os
 from volttron.platform.agent import utils
 from volttron.platform.vip.agent import Agent, Core, RPC
 from PIL import Image
@@ -69,7 +70,11 @@ class Yolo(Agent):
         self.default_config = {"camera_list": camera_list,
                                "scan_interval": scan_interval}
         
-        self.model = YOLO ('YoloOcc/models/yolov8n.pt')
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(current_dir, 'YoloOcc', 'models', 'yolov8n.pt')
+        # self.model = YOLO(model_path)
+        self.model = YOLO('yolov8n.pt')
+
 
         # Set a default configuration to ensure that self.configure is called immediately to setup
         # the agent.
@@ -129,7 +134,7 @@ class Yolo(Agent):
         """
         _log.error(f"grequests error: {exception} with {request}")
 
-    def analyze_images(self, image:Image):
+    def analyze_images(self, image:Image, camera_name):
         def center_point(x1, y1, x2, y2):
             x_center = (x1 + x2) / 2
             y_center = (y1 + y2) / 2
@@ -152,11 +157,15 @@ class Yolo(Agent):
             elif x >= W/2 and y >= H/2:
                 return check_dict(quadrant_dict, "bottom-right-quadrant/" + key)
     
-        results = self.model(image)[0]
+        # results = self.model(image)[0]
+        results = self.model.predict(image, save=True, project=f'{self.client}_{self.site}', name=camera_name, exist_ok = True)[0]
+        # model = YOLO()
+        # results = model(image)[0]
         identified_items = {}
-        # _log.debug(results)
+        _log.debug(results)
         if results.boxes:
             boxes = results.boxes.cpu().numpy()
+            _log.debug('BOXES FOUND///////////////////////')
 
             for box in boxes:
                 box_coordinates = box.xyxy[0].astype(int)
@@ -176,15 +185,17 @@ class Yolo(Agent):
         for camera in self.camera_list:
             auth = HTTPDigestAuth(camera.get('username'), camera.get('password'))
             _log.debug('username: ' + camera.get('username') + '  password:' + camera.get('password'))
-            # response = requests.get(camera.get('url'), auth=auth, verify=False)
-            req = grequests.get(camera.get('url'), auth=auth, verify=False)
-            (response,) = grequests.map(
-                (req,), exception_handler=self._grequests_exception_handler
-            )
+            response = requests.get(camera.get('url'), auth=auth, verify=False)
+            # req = grequests.get(camera.get('url'), auth=auth, verify=False)
+            # (response,) = grequests.map(
+            #     (req,), exception_handler=self._grequests_exception_handler
+            # )
             if response.status_code == 200:
                 image_bytes = BytesIO(response.content)
                 image = Image.open(image_bytes)
-                analysis_result = self.analyze_images(image)
+                filename = f"current_image.jpg"
+                image.save(filename, format='JPEG')
+                analysis_result = self.analyze_images(filename, camera.get('name'))
                 analysis_result['online'] = 1
                 _log.debug("Response received")
             else:
