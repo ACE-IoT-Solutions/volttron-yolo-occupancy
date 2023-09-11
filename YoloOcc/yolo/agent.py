@@ -48,7 +48,8 @@ def yolo(config_path, **kwargs):
     site = config.get('site', 'sitetest')
     client = config.get('client', 'clienttest')
     filter_items = config.get('filter_items', [])
-    return Yolo(camera_list, scan_interval, site, client, filter_items, **kwargs)
+    conf_threshold = config.get('conf_threshold', 0)
+    return Yolo(camera_list, scan_interval, site, client, filter_items, conf_threshold, **kwargs)
 
 
 class Yolo(Agent):
@@ -56,7 +57,7 @@ class Yolo(Agent):
     Document agent constructor here.
     """
 
-    def __init__(self, camera_list=[], scan_interval=300, site = 'test_site', client = 'test_client', filter_items = [], **kwargs):
+    def __init__(self, camera_list=[], scan_interval=300, site = 'test_site', client = 'test_client', filter_items = [], conf_threshold=0, **kwargs):
         super(Yolo, self).__init__(**kwargs)
         _log.debug("vip_identity: " + self.core.identity)
 
@@ -66,6 +67,7 @@ class Yolo(Agent):
         self.site = site
         self.camera_analysis = None
         self.filter_items = filter_items
+        self.conf_threshold = conf_threshold
 
         self.default_config = {"camera_list": camera_list,
                                "scan_interval": scan_interval}
@@ -96,14 +98,15 @@ class Yolo(Agent):
         _log.debug("Configuring Agent")
         _log.debug(contents)
         try:
-            if config_name == "config":
-                for entry in contents:
-                    _log.debug(f"setting {entry}")
+            # if config_name == "config":
+            #     for entry in contents:
+            #         _log.debug(f"setting {entry}")
             self.camera_list = contents.get("camera_list")
             self.scan_interval = contents.get("scan_interval", 30)
             self.site = contents.get("site")
             self.client = contents.get("client")
             self.filter_items = contents.get("filter_items", [])
+            self.conf_threshold = contents.get("conf_threshold", 0)
             if self.camera_analysis is not None:
                 self.camera_analysis.kill()
             self.camera_analysis = self.core.periodic(self.scan_interval, self.send_camera_results)
@@ -162,7 +165,7 @@ class Yolo(Agent):
         # model = YOLO()
         # results = model(image)[0]
         identified_items = {}
-        _log.debug(results)
+        # _log.debug(results)
         if results.boxes:
             boxes = results.boxes.cpu().numpy()
             _log.debug('BOXES FOUND///////////////////////')
@@ -170,9 +173,10 @@ class Yolo(Agent):
             for box in boxes:
                 box_coordinates = box.xyxy[0].astype(int)
                 box_identified = results.names[int(box.cls[0])]
+                _log.debug(box_coordinates)
 
                 store_box_identified = False
-                if not self.filter_items or box_identified in self.filter_items:
+                if (not self.filter_items or box_identified in self.filter_items) and box.conf[0] > self.conf_threshold:
                     store_box_identified = True
 
                 if store_box_identified:
@@ -184,13 +188,13 @@ class Yolo(Agent):
     def send_camera_results(self):
         for camera in self.camera_list:
             auth = HTTPDigestAuth(camera.get('username'), camera.get('password'))
-            _log.debug('username: ' + camera.get('username') + '  password:' + camera.get('password'))
-            response = requests.get(camera.get('url'), auth=auth, verify=False)
-            # req = grequests.get(camera.get('url'), auth=auth, verify=False)
-            # (response,) = grequests.map(
-            #     (req,), exception_handler=self._grequests_exception_handler
-            # )
-            if response.status_code == 200:
+            _log.debug('username: ' + camera.get('username'))
+            # response = requests.get(camera.get('url'), auth=auth, verify=False)
+            req = grequests.get(camera.get('url'), auth=auth, verify=False)
+            (response,) = grequests.map(
+                (req,), exception_handler=self._grequests_exception_handler
+            )
+            if response and response.status_code == 200:
                 image_bytes = BytesIO(response.content)
                 image = Image.open(image_bytes)
                 filename = f"current_image.jpg"
@@ -199,8 +203,9 @@ class Yolo(Agent):
                 analysis_result['online'] = 1
                 _log.debug("Response received")
             else:
-                _log.debug(response.status_code)
-                _log.debug(response.text)
+                if response:
+                    _log.debug(response.status_code)
+                    _log.debug(response.text)
                 analysis_result = {'online': 0}
             now = utils.format_timestamp( datetime.utcnow())
             header = {
@@ -210,7 +215,7 @@ class Yolo(Agent):
             _log.debug(analysis_result)
             self.vip.pubsub.publish(
                 'pubsub', 
-                f"devices/{self.client}/{self.site}/cameras/{camera.get('name')}",
+                f"devices/{self.client}/{self.site}/cameras/{camera.get('name')}/all",
                 headers=header,
                 message=[analysis_result]
             )
