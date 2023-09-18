@@ -49,7 +49,8 @@ def yolo(config_path, **kwargs):
     client = config.get('client', 'clienttest')
     filter_items = config.get('filter_items', [])
     conf_threshold = config.get('conf_threshold', 0)
-    return Yolo(camera_list, scan_interval, site, client, filter_items, conf_threshold, **kwargs)
+    ai_model_path = config.get('ai_model_path',"yolov8n.pt")
+    return Yolo(camera_list, scan_interval, site, client, filter_items, conf_threshold, ai_model_path, **kwargs)
 
 
 class Yolo(Agent):
@@ -57,7 +58,7 @@ class Yolo(Agent):
     Document agent constructor here.
     """
 
-    def __init__(self, camera_list=[], scan_interval=300, site = 'test_site', client = 'test_client', filter_items = [], conf_threshold=0, **kwargs):
+    def __init__(self, camera_list=[], scan_interval=300, site = 'test_site', client = 'test_client', filter_items = [], conf_threshold=0, ai_model_path = "yolov8n.pt", **kwargs):
         super(Yolo, self).__init__(**kwargs)
         _log.debug("vip_identity: " + self.core.identity)
 
@@ -68,14 +69,12 @@ class Yolo(Agent):
         self.camera_analysis = None
         self.filter_items = filter_items
         self.conf_threshold = conf_threshold
+        self.ai_model_path = ai_model_path
 
         self.default_config = {"camera_list": camera_list,
                                "scan_interval": scan_interval}
         
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(current_dir, 'YoloOcc', 'models', 'yolov8n.pt')
-        # self.model = YOLO(model_path)
-        self.model = YOLO('yolov8n.pt')
+        self.model = YOLO(self.ai_model_path)
 
 
         # Set a default configuration to ensure that self.configure is called immediately to setup
@@ -95,8 +94,8 @@ class Yolo(Agent):
         config.update(contents)
 
 
-        _log.debug("Configuring Agent")
-        _log.debug(contents)
+        # _log.debug("Configuring Agent")
+        # _log.debug(contents)
         try:
             # if config_name == "config":
             #     for entry in contents:
@@ -107,6 +106,8 @@ class Yolo(Agent):
             self.client = contents.get("client")
             self.filter_items = contents.get("filter_items", [])
             self.conf_threshold = contents.get("conf_threshold", 0)
+            self.ai_model_path = contents.get("ai_model_path", "yolov8n.pt")
+            self.model = YOLO(self.ai_model_path)
             if self.camera_analysis is not None:
                 self.camera_analysis.kill()
             self.camera_analysis = self.core.periodic(self.scan_interval, self.send_camera_results)
@@ -160,10 +161,7 @@ class Yolo(Agent):
             elif x >= W/2 and y >= H/2:
                 return check_dict(quadrant_dict, "bottom-right-quadrant/" + key)
     
-        # results = self.model(image)[0]
         results = self.model.predict(image, save=True, project=f'{self.client}_{self.site}', name=camera_name, exist_ok = True)[0]
-        # model = YOLO()
-        # results = model(image)[0]
         identified_items = {}
         # _log.debug(results)
         if results.boxes:
