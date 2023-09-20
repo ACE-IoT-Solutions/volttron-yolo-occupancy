@@ -7,6 +7,8 @@ __docformat__ = 'reStructuredText'
 import logging
 import sys
 import os
+import json
+import base64
 from volttron.platform.agent import utils
 from volttron.platform.vip.agent import Agent, Core, RPC
 from PIL import Image
@@ -59,7 +61,7 @@ class Yolo(Agent):
     """
 
     def __init__(self, camera_list=[], scan_interval=300, site = 'test_site', client = 'test_client', filter_items = [], conf_threshold=0, ai_model_path = "yolov8n.pt", **kwargs):
-        super(Yolo, self).__init__(**kwargs)
+        super(Yolo, self).__init__(enable_web=True, **kwargs)
         _log.debug("vip_identity: " + self.core.identity)
 
         self.camera_list = camera_list
@@ -161,17 +163,17 @@ class Yolo(Agent):
             elif x >= W/2 and y >= H/2:
                 return check_dict(quadrant_dict, "bottom-right-quadrant/" + key)
     
-        results = self.model.predict(image, save=True, project=f'{self.client}_{self.site}', name=camera_name, exist_ok = True)[0]
+        results = self.model.predict(image, save=True, project=f'images/yoloimg/{self.site}', name=camera_name, exist_ok = True)[0]
         identified_items = {}
         # _log.debug(results)
         if results.boxes:
             boxes = results.boxes.cpu().numpy()
-            _log.debug('BOXES FOUND///////////////////////')
+            # _log.debug('BOXES FOUND///////////////////////')
 
             for box in boxes:
                 box_coordinates = box.xyxy[0].astype(int)
                 box_identified = results.names[int(box.cls[0])]
-                _log.debug(box_coordinates)
+                # _log.debug(box_coordinates)
 
                 store_box_identified = False
                 if (not self.filter_items or box_identified in self.filter_items) and box.conf[0] > self.conf_threshold:
@@ -199,18 +201,18 @@ class Yolo(Agent):
                 image.save(filename, format='JPEG')
                 analysis_result = self.analyze_images(filename, camera.get('name'))
                 analysis_result['online'] = 1
-                _log.debug("Response received")
+                # _log.debug("Response received")
             else:
-                if response:
-                    _log.debug(response.status_code)
-                    _log.debug(response.text)
+                # if response:
+                #     _log.debug(response.status_code)
+                #     _log.debug(response.text)
                 analysis_result = {'online': 0}
             now = utils.format_timestamp( datetime.utcnow())
             header = {
                 header_mod.DATE: now,
                 header_mod.TIMESTAMP: now
             }
-            _log.debug(analysis_result)
+            # _log.debug(analysis_result)
             self.vip.pubsub.publish(
                 'pubsub', 
                 f"devices/{self.client}/{self.site}/cameras/{camera.get('name')}/all",
@@ -218,6 +220,22 @@ class Yolo(Agent):
                 message=[analysis_result]
             )
         return
+
+
+    def jsonrpc(self, env, data):
+        """
+        Returns camera information for web interface
+        """
+        data = []
+        for camera in self.camera_list:
+            camera_url = f"/yoloimg/{self.site}/{camera['name']}/current_image.jpg"
+            data.append({
+                "name": camera['name'],
+                "src": camera_url
+            })
+        return {'data' : data}
+
+
 
     @Core.receiver("onstart")
     def onstart(self, sender, **kwargs):
@@ -233,9 +251,19 @@ class Yolo(Agent):
         # self.vip.pubsub.publish('pubsub', "devices/camera/topic", message="HI!")
         _log.debug("in onstart")
         _log.debug(f"{self.scan_interval=}")
-        # if self.scan_interval > 0:
-        #     self.camera_analysis = self.core.periodic(self.scan_interval, self.send_camera_results)
-        
+
+        # Sets WEB_ROOT to be the path to the webroot directory
+        # in the agent-data directory of the installed agent..
+        WEB_ROOT = os.path.abspath(os.path.abspath(os.path.join(os.path.dirname(__file__), 'webroot/')))
+        # Serves the static content from 'webroot' directory
+
+        self.vip.web.register_path(r'^/yolo/.*', WEB_ROOT)
+        self.vip.web.register_endpoint(r'/yolorpc/jsonrpc', self.jsonrpc)
+
+        camera_image_roots = os.path.abspath(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', f'images/')))
+        os.makedirs(camera_image_roots, exist_ok = True)
+        _log.debug(camera_image_roots)
+        self.vip.web.register_path(r'^/yoloimg/.*', camera_image_roots)
         # Example RPC call
         # self.vip.rpc.call("some_agent", "some_method", arg1, arg2)
         # pass

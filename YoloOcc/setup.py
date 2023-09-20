@@ -13,6 +13,7 @@ __version__ = _temp.__version__
 
 # Setup
 setup(
+    include_package_data=True,
     name=agent_package + 'agent',
     version=__version__,
     author="Justice Lee",

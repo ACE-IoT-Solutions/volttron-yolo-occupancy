@@ -8,9 +8,9 @@
             "description": "example camera of andrew's office"
         }
     ],
-    "filter_items": ["person", "laptop", "cell phone"],
     "scan_interval": 20,
     "site": "site123",
     "client": "client123",
-    "conf_threshold": 0
+    "conf_threshold": 0.3,
+    "ai_model_path": "/var/lib/volttron/YoloOcc/yolo/models/yolov8m.pt"
 }
