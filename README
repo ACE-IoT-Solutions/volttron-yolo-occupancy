@@ -21,6 +21,7 @@ A sample config is provided in the repository. The config file is a JSON file wi
     * `password`: The password for the camera. If the camera does not require authentication, this field can be omitted.
     * `name`: The name of the camera. This will be used as the topic for the occupancy count.
     * `description`: Description of the camera. This will be used as the description for the occupancy count meta data.
+    * `auth_method`: The authentication method to use for the camera. Currently only `basic` and `digest` are supported, default is `digest`.
 * `ai_model_path`: The path to the YoloV8 model. The model can be downloaded from Ultralytics or you can provide a custom model
 * `conf_threshold`: The confidence threshold for the model. This is the minimum confidence for a detection to be considered valid.
 * `scan_interval`: The interval at which the agent will poll the cameras for snapshots.
