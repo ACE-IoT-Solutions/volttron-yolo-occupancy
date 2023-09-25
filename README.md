@@ -22,6 +22,8 @@ Then adding the configuration file to the VOLTTRON™️ configuration store:
 
 ```volttron-ctl config store yoloocc config <path to config file>```
 
+By default, the agent will download a pre-trained YoloV8 model from Ultralytics. If you wish to use a custom model, you can provide the path to the model in the configuration file, as shown below. Best results were found with the model file included in this repo for 1920x1080 images.
+
 ## Configuration
 A sample config is provided in the repository. The config file is a JSON file with the following fields:
 * `camera_list`: A list of camera definitions with the following fields:
