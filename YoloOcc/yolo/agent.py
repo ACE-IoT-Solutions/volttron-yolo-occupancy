@@ -1,5 +1,14 @@
 """
-Agent documentation goes here.
+Copyright 2023 ACE IoT Solutions
+Licensed under the MIT License (MIT)
+Created by Justice Lee
+
+This agent is used to analyze images from a camera using YOLOv8, and publish the results to the VOLTTRON message bus.
+The agent is configured using the config file, and the camera information is stored in the config file.
+The agent will periodically scan the cameras and publish the results to the message bus.
+The agent also provides a web interface to view the camera images and the pre filtered results of the analysis.
+
+
 """
 
 __docformat__ = 'reStructuredText'
@@ -7,15 +16,11 @@ __docformat__ = 'reStructuredText'
 import logging
 import sys
 import os
-import json
-import base64
 from volttron.platform.agent import utils
 from volttron.platform.vip.agent import Agent, Core, RPC
 from PIL import Image
 import grequests
-import requests
-import gevent
-from requests.auth import HTTPDigestAuth
+from requests.auth import HTTPDigestAuth, HTTPBasicAuth
 from ultralytics import YOLO
 from io import BytesIO
 from datetime import datetime
@@ -65,6 +70,10 @@ class Yolo(Agent):
         _log.debug("vip_identity: " + self.core.identity)
 
         self.camera_list = camera_list
+        self.auth_methods = {
+            "digest": HTTPDigestAuth
+            "basic": HTTPBasicAuth
+        }
         self.scan_interval = scan_interval
         self.client = client
         self.site = site
@@ -116,23 +125,6 @@ class Yolo(Agent):
         except ValueError as e:
             _log.error("ERROR PROCESSING CONFIGURATION: {}".format(e))
             return
-
-    def _create_subscriptions(self, topic):
-        """
-        Unsubscribe from all pub/sub topics and create a subscription to a topic in the configuration which triggers
-        the _handle_publish callback
-        """
-        self.vip.pubsub.unsubscribe("pubsub", None, None)
-
-        self.vip.pubsub.subscribe(peer='pubsub',
-                                  prefix=topic,
-                                  callback=self._handle_publish)
-
-    def _handle_publish(self, peer, sender, bus, topic, headers, message):
-        """
-        Callback triggered by the subscription setup using the topic from the agent's config file
-        """
-        pass
 
     def _grequests_exception_handler(self, request, exception):
         """
@@ -186,14 +178,19 @@ class Yolo(Agent):
         return identified_items
 
     def send_camera_results(self):
+        reqs = []
         for camera in self.camera_list:
-            auth = HTTPDigestAuth(camera.get('username'), camera.get('password'))
+            auth_method = camera.get('auth_method', 'digest')
+            auth = auth_method(camera.get('username'), camera.get('password'))
             _log.debug('username: ' + camera.get('username'))
             # response = requests.get(camera.get('url'), auth=auth, verify=False)
             req = grequests.get(camera.get('url'), auth=auth, verify=False)
-            (response,) = grequests.map(
-                (req,), exception_handler=self._grequests_exception_handler
-            )
+            req.camera = camera
+            reqs.append(req)
+        for response in grequests.imap(
+                reqs, exception_handler=self._grequests_exception_handler
+            ):
+            camera = response.request.camera
             if response and response.status_code == 200:
                 image_bytes = BytesIO(response.content)
                 image = Image.open(image_bytes)
@@ -219,7 +216,6 @@ class Yolo(Agent):
                 headers=header,
                 message=[analysis_result]
             )
-        return
 
 
     def jsonrpc(self, env, data):
