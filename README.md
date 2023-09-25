@@ -12,6 +12,8 @@ Efficiency and Renewable Energy under the Award Number
 EE0008684.
 
 ## Installation
+To use CUDA, you will need to follow the instructions for setting up the required libraries for your environment. You will also need to make sure the user that volttron is running under has access to the CUDA libraries and is a member of the `video` group.
+
 The agent can be installed using the VOLTTRON™️ Control Panel, or by running the following command from the VOLTTRON™️ root directory:
 
 ```python scripts/install-agent.py -s YoloOcc -i yoloocc -t yoloocc -f```
