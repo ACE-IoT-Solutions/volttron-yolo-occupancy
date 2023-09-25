@@ -1,11 +1,14 @@
 # YoloOcc VOLTTRON™️ Agent
 
-![Sample image of cube farm with raw model output overlaid](https://github.com/ACE-IoT-Solutions/volttron-yolo-occupancy/blob/main/sample_cube_farm.png?raw=true)
+![ACE IoT Solution logo](https://github.com/ACE-IoT-Solutions/volttron-yolo-occupancy/blob/main/ace_iot_solutions.png?raw=true)
 
 This project provides an Eclipse VOLTTRON™️ Agent for determining occupancy count of a space using the YoloV8 Model and nVidia CUDA acceleration.
 The model will also run on CPU resources, but will be considerably slower. The application was tested on a Jetson Nano 8GB Developer Kit, where it delivered frame rates of 10-15 FPS, or 10-15 different camera feeds at 1 FPS.
 The camera interface was designed for Hikvision DS-2CD2185FWD-I 8MP cameras, but should work with any camera that supports a simple JPEG snapshot URL.
 The interface was also designed to be easily extensible for other authentication methods.
+
+![Sample image of cube farm with raw model output overlaid](https://github.com/ACE-IoT-Solutions/volttron-yolo-occupancy/blob/main/sample_cube_farm.png?raw=true)
+
 
 This project was created for [Slipstream Inc](https://slipstreaminc.org), as a collaboration with the [Minnesota Center for Energy and the Environment (MCEE)](https://www.mncee.org/wi-fi-location-based-services-optimize-energy-efficiency) and is supported in part by a grant from the U.S. Department of Energy’s Office of Energy
 Efficiency and Renewable Energy under the Award Number
