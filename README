@@ -1,4 +1,7 @@
 # YoloOcc
+
+![Sample image of cube farm with raw model output overlaid](https://github.com//[reponame]https://github.com/ACE-IoT-Solutions/volttron-yolo-occupancy/blob/main/sample_cube_farm.png?raw=true)
+
 This project provides an Eclipse VOLTTRON™️ Agent for determining occupancy count of a space using the YoloV8 Model and nVidia CUDA acceleration.
 The model will also run on CPU resources, but will be considerably slower. The application was tested on a Jetson Nano 8GB Developer Kit, where it delivered frame rates of 10-15 FPS, or 10-15 different camera feeds at 1 FPS.
 The camera interface was designed for Hikvision DS-2CD2185FWD-I 8MP cameras, but should work with any camera that supports a simple JPEG snapshot URL.
