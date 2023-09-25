@@ -179,18 +179,19 @@ class Yolo(Agent):
 
     def send_camera_results(self):
         reqs = []
+        url_to_camera = {}
         for camera in self.camera_list:
             auth_method = self.auth_methods[camera.get('auth_method', 'digest')]
             auth = auth_method(camera.get('username'), camera.get('password'))
             _log.debug('username: ' + camera.get('username'))
             # response = requests.get(camera.get('url'), auth=auth, verify=False)
             req = grequests.get(camera.get('url'), auth=auth, verify=False)
-            req.camera = camera
+            url_to_camera[camera.get('url')] = camera
             reqs.append(req)
         for response in grequests.imap(
                 reqs, exception_handler=self._grequests_exception_handler
             ):
-            camera = response.request.camera
+            camera = url_to_camera[response.url]
             if response and response.status_code == 200:
                 image_bytes = BytesIO(response.content)
                 image = Image.open(image_bytes)
