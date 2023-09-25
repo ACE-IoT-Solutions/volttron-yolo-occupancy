@@ -71,7 +71,7 @@ class Yolo(Agent):
 
         self.camera_list = camera_list
         self.auth_methods = {
-            "digest": HTTPDigestAuth
+            "digest": HTTPDigestAuth,
             "basic": HTTPBasicAuth
         }
         self.scan_interval = scan_interval
@@ -180,7 +180,7 @@ class Yolo(Agent):
     def send_camera_results(self):
         reqs = []
         for camera in self.camera_list:
-            auth_method = camera.get('auth_method', 'digest')
+            auth_method = self.auth_methods[camera.get('auth_method', 'digest')]
             auth = auth_method(camera.get('username'), camera.get('password'))
             _log.debug('username: ' + camera.get('username'))
             # response = requests.get(camera.get('url'), auth=auth, verify=False)
